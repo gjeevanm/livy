@@ -20,6 +20,7 @@ package com.cloudera.livy.repl.sparkr
 
 import java.io.{File, FileOutputStream}
 import java.lang.ProcessBuilder.Redirect
+import java.lang.System
 import java.nio.file.Files
 
 import scala.annotation.tailrec
@@ -65,7 +66,10 @@ object SparkRInterpreter {
     val executable = sparkRExecutable
       .getOrElse(throw new IllegalStateException("Cannot find sparkR executable."))
 
-    val builder = new ProcessBuilder(Seq(executable.getAbsolutePath).asJava)
+    // Introduce the Spark context packages configuration into the SparkR, which can help
+    // to load the 3rd party packages.
+    val command = Seq(executable.getAbsolutePath, "--packages", System.getProperty("spark.jars.packages"))
+    val builder = new ProcessBuilder(command.asJava)
 
     val env = builder.environment()
     env.put("SPARK_HOME", sys.env.getOrElse("SPARK_HOME", "."))
