@@ -62,11 +62,13 @@
             <artifactId>commons-codec</artifactId>
         </dependency>
 
+        <!-- javax servlet is required in livy repl
         <dependency>
             <groupId>javax.servlet</groupId>
             <artifactId>javax.servlet-api</artifactId>
             <scope>provided</scope>
         </dependency>
+        -->
 
         <dependency>
           <groupId>log4j</groupId>
