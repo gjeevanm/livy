@@ -30,12 +30,13 @@ import org.apache.commons.codec.binary.Base64
 import org.json4s._
 import org.json4s.JsonDSL._
 
+import com.cloudera.livy.{Logging, Utils}
 import com.cloudera.livy.repl
 import com.cloudera.livy.repl.Interpreter
 import com.cloudera.livy.repl.process.ProcessInterpreter
 
 // scalastyle:off println
-object SparkRInterpreter {
+object SparkRInterpreter extends Logging {
   private val LIVY_END_MARKER = "----LIVY_END_OF_COMMAND----"
   private val PRINT_MARKER = f"""print("$LIVY_END_MARKER")"""
   private val EXPECTED_OUTPUT = f"""[1] "$LIVY_END_MARKER""""
@@ -66,9 +67,28 @@ object SparkRInterpreter {
     val executable = sparkRExecutable
       .getOrElse(throw new IllegalStateException("Cannot find sparkR executable."))
 
-    // Introduce the Spark context packages configuration into the SparkR, which can help
-    // to load the 3rd party packages.
-    val command = Seq(executable.getAbsolutePath, "--packages", System.getProperty("spark.jars.packages"))
+    info("Preparing SparkR command...")
+
+    val log4jConfigFileForSparkR = new java.io.File("conf/log4j.sparkR.properties")
+
+    val command = Seq(executable.getAbsolutePath) ++
+      // In process, introduce the Spark context packages configuration into the SparkR, which can help
+      // to load the 3rd party packages.
+      Option(System.getProperty("spark.jars.packages")).map(Seq("--packages", _))
+        .getOrElse(Seq()) ++
+      // In yarn cluster
+      // FIXME!!!, not working.
+      sys.env.get("SPARK_YARN_CACHE_FILES").map(Seq("--jars", _))
+        .getOrElse(Seq()) ++
+      // log4j properties file configuration for SparkR
+      (log4jConfigFileForSparkR.exists match {
+        case true => Seq("--driver-java-options",
+                         "-Dlog4j.configuration=file:" + log4jConfigFileForSparkR.getAbsolutePath())
+        case _ => Seq()
+      })
+
+    info("Lunching SparkR with the command: " + command)
+
     val builder = new ProcessBuilder(command.asJava)
 
     val env = builder.environment()
